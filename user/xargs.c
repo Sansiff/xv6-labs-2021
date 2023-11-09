@@ -1,37 +1,37 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
+#include "kernel/param.h"
+
+#define BUF_SIZE 512
 
 int main(int argc, char *argv[]) {
-  char* targv[32];
-  for(int i = 1; i < argc; i ++) {
-    targv[i - 1] = argv[i];
+  if (argc < 2) {
+    fprintf(2, "Usage: xargs command\n");
+    exit(1);
+  }
+  char* args[MAXARG + 1];
+  int index = 0;
+  for (int i = 1; i < argc; ++i) {
+    args[index++] = argv[i];
   }
 
-  int tp = argc - 1;
-  int p = tp;
-  char buf[32];
-  while(read(0, (void*)&buf, 32) > 0) {
-    char s[32];
-    int m = 0;
-    for(int i = 0; i < 32; i ++) {
-      if(buf[i] == '\n') {
-        targv[p ++] = s;
-        targv[p] = 0;
-        if(fork() == 0) {
-          exec(argv[1], targv);
-        }
-        wait(0);
-        p = tp;
-      } else if(buf[i] == ' '){
-        s[m] = 0;
-        targv[p ++] = s;
-        m = 0;
-      } else {
-        s[m ++] = buf[i];    
+  char buf[BUF_SIZE];
+  char *p = buf;
+  while (read(0, p, 1) == 1) {
+    if ((*p) == '\n') {
+      *p = 0;
+      if (fork() == 0) {
+        args[index] = buf;
+        exec(argv[1], args);
+        fprintf(2, "exec %s failed\n", argv[1]);
+        exit(0);
       }
+      wait(0);
+      p = buf;
+    } else {
+      ++ p;
     }
   }
-
   exit(0);
 }
